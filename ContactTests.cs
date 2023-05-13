@@ -16,7 +16,7 @@ namespace IPDImexWebsiteUnitTests
     internal class ContactTests
     {
         [Test]
-        public void OnPost_ModelStateIsNotValid_ReturnPage()
+        public async Task OnPost_ModelStateIsNotValid_ReturnPage()
         {
             //arrange
             var mockRepository = new Mock<IRepositoryMessage>();
@@ -24,20 +24,20 @@ namespace IPDImexWebsiteUnitTests
             model.ModelState.AddModelError("error", "customError");
 
             //act 
-            var result = model.OnPost() as PageResult;
+            var result = await model.OnPost() as PageResult;
 
             //assert
             mockRepository.Verify(x => x.SendMessage(It.IsAny<Message>()), Times.Never);
         }
         [Test]
-        public void OnPost_ModelStateIsValid_ReturnPage()
+        public async Task OnPost_ModelStateIsValid_ReturnPage()
         {
             //arrange
             var mockRepository = new Mock<IRepositoryMessage>();
             ContactModel model = new ContactModel(mockRepository.Object);
 
             //act
-            var result = model.OnPost() as RedirectToPageResult;
+            var result = await model.OnPost() as RedirectToPageResult;
 
             //assert
             mockRepository.Verify(x => x.SendMessage(It.IsAny<Message>()), Times.Once);

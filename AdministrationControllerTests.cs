@@ -119,8 +119,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 10;
@@ -139,8 +139,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 10;
@@ -167,8 +167,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 2;
@@ -296,7 +296,6 @@ namespace IPDImexWebsiteUnitTests
         [Test]
         [TestCase(null)]
         [TestCase("")]
-
         public async Task SearchMessages_SearchCriteriaIsNullOrEmptytReturnMessagesPanel(string searchCriteria)
         {
             //assert
@@ -317,8 +316,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 10;
@@ -336,8 +335,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 10;
@@ -362,8 +361,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 2;
@@ -392,8 +391,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
-            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(25);
-            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(12);
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
             var controller = new AdministrationController(mockMessages.Object);
             controller.PageSize = 2;
