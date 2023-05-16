@@ -53,7 +53,7 @@ namespace IPDImexWebsiteUnitTests
             var mockRepAplication = new Mock<IRepositoryAplication>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobs()).Returns(MockGetJobs());
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
             var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
 
@@ -76,7 +76,7 @@ namespace IPDImexWebsiteUnitTests
             var mockRepAplication = new Mock<IRepositoryAplication>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobs()).Returns(MockGetJobs());
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
             var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
             controller.ModelState.AddModelError("error", "Test error");
@@ -99,7 +99,7 @@ namespace IPDImexWebsiteUnitTests
             var mockRepAplication = new Mock<IRepositoryAplication>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobs()).Returns(MockGetJobs());
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
             //mock  IFormFile
             var content = "This is my cv";
@@ -149,7 +149,7 @@ namespace IPDImexWebsiteUnitTests
             var mockRepAplication = new Mock<IRepositoryAplication>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobs()).Returns(MockGetJobs());
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
             //mock  IFormFile
 
@@ -185,7 +185,7 @@ namespace IPDImexWebsiteUnitTests
             var mockRepAplication = new Mock<IRepositoryAplication>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobs()).Returns(MockGetJobs());
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
             //mock  IFormFile
             var content = "This is my cv";
@@ -236,7 +236,7 @@ namespace IPDImexWebsiteUnitTests
             var mockRepAplication = new Mock<IRepositoryAplication>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobs()).Returns(MockGetJobs());
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
             //mock  IFormFile
             var content = "This is my cv";
