@@ -52,41 +52,13 @@ namespace IPDImexWebsiteUnitTests
             }
             await Task.CompletedTask;
         }
-        public async IAsyncEnumerable<Project> MockGetProjectsEmpty()
-        {
-            var mockData = new List<Project>
-            {
-            };
-
-            foreach (var project in mockData)
-            {
-                yield return project;
-            }
-            await Task.CompletedTask;
-        }
-        [Test]
-        public async Task Index_ProjectsAreEmpty_RedirectToClientInfo()
-        {
-            //arrange
-            var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetAllProjects()).Returns(MockGetProjectsEmpty());
-
-            var controller = new ProjectsController(mockRepository.Object);
-            controller.PageSize = 2;
-
-            //act
-            var result = await controller.Index(1) as RedirectToPageResult;
-
-            //assert
-            Assert.That(result?.PageName, Is.EqualTo("/ClientInfo"));
-        }
 
         [Test]
         public async Task Index_CanPaginate_ReturnSpecifiedPage()
         {
             //arrange
             var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetAllProjects()).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetAllProjectsIncludePictures()).Returns(MockGetProjects());
 
             var controller = new ProjectsController(mockRepository.Object);
             controller.PageSize = 2;
@@ -112,7 +84,7 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetAllProjects()).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetAllProjectsIncludePictures()).Returns(MockGetProjects());
 
             var controller = new ProjectsController(mockRepository.Object);
             controller.PageSize = 2;

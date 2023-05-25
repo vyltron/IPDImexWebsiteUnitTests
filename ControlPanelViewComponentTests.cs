@@ -27,7 +27,10 @@ namespace IPDImexWebsiteUnitTests
             var mockJobs = new Mock<IRepositoryJob>();
             mockJobs.Setup(x => x.GetJobsCountAsync()).Returns(async () => await Task.FromResult(15));
 
-            var viewComponent = new ControlPanelViewComponent(mockMessages.Object, mockApplications.Object, mockJobs.Object);
+            var mockProjects = new Mock<IRepositoryProject>();
+            mockProjects.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(15));
+
+            var viewComponent = new ControlPanelViewComponent(mockMessages.Object, mockApplications.Object, mockJobs.Object,mockProjects.Object);
 
             //act
             var result = (await viewComponent.InvokeAsync() as ViewViewComponentResult)?.ViewData?.Model as ControlPanelViewModel ?? new();
@@ -36,6 +39,7 @@ namespace IPDImexWebsiteUnitTests
             Assert.That(result.MessagesCount, Is.EqualTo(10));
             Assert.That(result.AplicationsCount, Is.EqualTo(12));
             Assert.That(result.JobsCount, Is.EqualTo(15));
+            Assert.That(result.ProjectsCount, Is.EqualTo(15));
         }
     }
 }
