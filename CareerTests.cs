@@ -12,6 +12,8 @@ using Moq;
 using IPDImexWebsite.ViewModels;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Headers;
+using IPDImexWebsite.CustomServices;
+using System.Security.Cryptography.X509Certificates;
 
 namespace IPDImexWebsiteUnitTests
 {
@@ -51,11 +53,12 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
 
             //act 
             var results = (await controller.Index() as ViewResult)?.ViewData.Model as CarrersViewModel ?? new();
@@ -69,16 +72,43 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(jobs[2].JobName, Is.EqualTo("Job3"));
             });
         }
+        [Test]
+        public async Task Index_SoemthingWentWrong_ThrowExceptionReturnViewWithEmptyJobs()
+        {
+            //arrange
+            var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
+
+            var mockRepJob = new Mock<IRepositoryJob>();
+            mockRepJob.Setup(x => x.GetJobsAsync()).Throws(new Exception("A aparut o eroare!"));
+
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+
+            //act 
+            var results = (await controller.Index() as ViewResult)?.ViewData.Model as CarrersViewModel ?? new();
+            //assert
+
+            Assert.That(results.Jobs.Count(), Is.EqualTo(0));
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var job in mockRepJob.Object.GetJobsAsync())
+                {
+                    //...
+                }
+            });
+        }
+
         [Test] 
         public async Task PostAplication_ModelStateIsNotValid_ReturnIndexView()
         {
             //arrange
             var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
             controller.ModelState.AddModelError("error", "Test error");
 
             var viewModel = new CarrersViewModel();
@@ -91,12 +121,50 @@ namespace IPDImexWebsiteUnitTests
             Assert.That(result.ViewData.ModelState.ContainsKey("error"), Is.EqualTo(true));
             Assert.That(result!.ViewName, Is.EqualTo("Index"));
         }
+        
+        [Test]
+        public async Task PostAplication_FormFileIsNull_ReturnIndexView()
+        {
+            //arrange
+            var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
+
+            var mockRepJob = new Mock<IRepositoryJob>();
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
+
+            //mock  IFormFile
+
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+
+
+            var viewModel = new CarrersViewModel
+            {
+                Aplication = new Aplication
+                {
+                    LastName = "Dragus",
+                    FirstName = "Ciprian",
+                    Email = "cipri.dragus@yaoo.com",
+                    Phone = "0747343056",
+                    Age = 28,
+                    CoverLetter = "Salut",
+                    CV = new CV { Id = 1 }
+                }
+            };
+
+            //act 
+            var result = await controller.PostAplication(viewModel) as ViewResult ?? new();
+
+            //assert
+            Assert.That(result!.ViewName, Is.EqualTo("Index"));
+            Assert.That(result.ViewData.ModelState.ContainsKey("MissingCV"), Is.EqualTo(true));
+        }
 
         [Test]
         public async Task PostAplication_FormFileIsNotNullButIsBiggerThan3mb_ReturnIndexView()
         {
             //arrange
             var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
@@ -114,7 +182,7 @@ namespace IPDImexWebsiteUnitTests
             IFormFile formFile = new FormFile(stream, 0, lengthLong, "id_from_form", fileName);
 
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
 
 
             var viewModel = new CarrersViewModel
@@ -142,41 +210,7 @@ namespace IPDImexWebsiteUnitTests
             Assert.That(result!.ViewName, Is.EqualTo("Index"));
             Assert.That(result.ViewData.ModelState.ContainsKey("BigFile"), Is.EqualTo(true));
         }
-        [Test]
-        public async Task PostAplication_FormFileIsNull_ReturnIndexView()
-        {
-            //arrange
-            var mockRepAplication = new Mock<IRepositoryAplication>();
-
-            var mockRepJob = new Mock<IRepositoryJob>();
-            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
-
-            //mock  IFormFile
-
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
-
-
-            var viewModel = new CarrersViewModel
-            {
-                Aplication = new Aplication
-                {
-                    LastName = "Dragus",
-                    FirstName = "Ciprian",
-                    Email = "cipri.dragus@yaoo.com",
-                    Phone = "0747343056",
-                    Age = 28,
-                    CoverLetter = "Salut",
-                    CV = new CV { Id = 1 }
-                }
-            };
-
-            //act 
-            var result = await controller.PostAplication(viewModel) as ViewResult ?? new();
-
-            //assert
-            Assert.That(result!.ViewName, Is.EqualTo("Index"));
-            Assert.That(result.ViewData.ModelState.ContainsKey("MissingCV"), Is.EqualTo(true));
-        }
+      
 
         [Test]
         public async Task PostAplication_FormFileIsNotPDF_ReturnIndexView()
@@ -186,6 +220,7 @@ namespace IPDImexWebsiteUnitTests
 
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
+            var mockEmail = new Mock<IEmailService>();
 
             //mock  IFormFile
             var content = "This is my cv";
@@ -202,7 +237,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
 
 
             var viewModel = new CarrersViewModel
@@ -230,13 +265,17 @@ namespace IPDImexWebsiteUnitTests
         }
 
         [Test]
-        public async Task PostAplication_FormFileIsPDFAndCVFileIsNotNull_ReturnClientInfoRazorPage()
+        public async Task PostAplication_EverythingWorks_ReturnClientInfoRazorPage()
         {
             //arrange
             var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
+            mockEmail.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(async () => await Task.FromResult(Task.CompletedTask));
 
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
+
+            
 
             //mock  IFormFile
             var content = "This is my cv";
@@ -253,7 +292,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
 
             
 
@@ -281,7 +320,126 @@ namespace IPDImexWebsiteUnitTests
             Assert.That(result!.PageName, Is.EqualTo("/ClientInfo"));
             Assert.That(result!.RouteValues?["info"], Is.EqualTo("Aplicația ta a fost trimisă cu succes!"));
             mockRepAplication.Verify(x => x.SendAplication(It.IsAny<Aplication>()), Times.Once);
+            mockEmail.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once());
             
+        }
+
+        [Test]
+        public async Task PostAplication_EmailServiceThrowsError_ReturnClientInfoRazorPage()
+        {
+            //arrange
+            var mockRepAplication = new Mock<IRepositoryAplication>();
+            var mockEmail = new Mock<IEmailService>();
+            mockEmail.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Throws(new Exception("Eroare, Ceva nu a mers bine!"));
+            var mockRepJob = new Mock<IRepositoryJob>();
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
+
+
+
+            //mock  IFormFile
+            var content = "This is my cv";
+            var fileName = "test.pdf";//set type to txt
+            var stream = new MemoryStream();
+            var writer = new StreamWriter(stream);
+            writer.Write(content);
+            writer.Flush();
+            stream.Position = 0;
+            IFormFile formFile = new FormFile(stream, 0, stream.Length, "id_from_form", fileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = "application/pdf"
+            };
+
+
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+
+
+
+            var viewModel = new CarrersViewModel
+            {
+                Aplication = new Aplication
+                {
+                    LastName = "Dragus",
+                    FirstName = "Ciprian",
+                    Email = "cipri.dragus@yaoo.com",
+                    Phone = "0747343056",
+                    Age = 28,
+                    CoverLetter = "Salut",
+                    CV = new CV { Id = 1 }
+                },
+                FormFile = formFile,
+            };
+
+            //act 
+            var result = await controller.PostAplication(viewModel) as RedirectToPageResult;
+
+
+            //assert
+            Assert.That(formFile.ContentType, Is.EqualTo("application/pdf"));
+            Assert.That(result!.PageName, Is.EqualTo("/ClientInfo"));
+            Assert.That(result!.RouteValues?["info"], Is.EqualTo("Aplicația ta a fost trimisă cu succes!"));
+            mockRepAplication.Verify(x => x.SendAplication(It.IsAny<Aplication>()), Times.Once);
+            mockEmail.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () => await mockEmail.Object.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()));
+        }
+        [Test]
+        public async Task PostAplication_AddApplicationToDatabaseThrowsError_ReturnClientInfoRazorPage()
+        {
+            //arrange
+            var mockRepAplication = new Mock<IRepositoryAplication>();
+            mockRepAplication.Setup(x => x.SendAplication(It.IsAny<Aplication>())).Throws(new Exception("Eroare, Ceva nu a mers bine!"));
+
+            var mockEmail = new Mock<IEmailService>();
+            var mockRepJob = new Mock<IRepositoryJob>();
+            mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
+
+
+
+            //mock  IFormFile
+            var content = "This is my cv";
+            var fileName = "test.pdf";//set type to txt
+            var stream = new MemoryStream();
+            var writer = new StreamWriter(stream);
+            writer.Write(content);
+            writer.Flush();
+            stream.Position = 0;
+            IFormFile formFile = new FormFile(stream, 0, stream.Length, "id_from_form", fileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = "application/pdf"
+            };
+
+
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+
+
+
+            var viewModel = new CarrersViewModel
+            {
+                Aplication = new Aplication
+                {
+                    LastName = "Dragus",
+                    FirstName = "Ciprian",
+                    Email = "cipri.dragus@yaoo.com",
+                    Phone = "0747343056",
+                    Age = 28,
+                    CoverLetter = "Salut",
+                    CV = new CV { Id = 1 }
+                },
+                FormFile = formFile,
+            };
+
+            //act 
+            var result = await controller.PostAplication(viewModel) as RedirectToPageResult;
+
+
+            //assert
+            Assert.That(formFile.ContentType, Is.EqualTo("application/pdf"));
+            Assert.That(result!.PageName, Is.EqualTo("/ClientInfo"));
+            Assert.That(result!.RouteValues?["info"], Is.EqualTo("Ceva nu a mers bine , încearcă dinou sau contactează dezvoltatorul!"));
+            mockRepAplication.Verify(x => x.SendAplication(It.IsAny<Aplication>()), Times.Once);
+            mockEmail.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never());
+            Assert.ThrowsAsync<Exception>(async () => await mockRepAplication.Object.SendAplication(It.IsAny<Aplication>()));
         }
     }
 }
