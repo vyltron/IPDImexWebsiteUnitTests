@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Castle.Core.Logging;
 using IPDImexWebsite.CustomServices;
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.Pages;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace IPDImexWebsiteUnitTests
@@ -21,8 +23,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryMessage>();
+            var mockILogger = new Mock<ILogger<ContactModel>>();
             var mockEmail = new Mock<IEmailService>();
-            ContactModel model  = new ContactModel(mockRepository.Object,mockEmail.Object);
+            ContactModel model  = new ContactModel(mockRepository.Object,mockEmail.Object, mockILogger.Object);
             model.ModelState.AddModelError("error", "customError");
 
             //act 
@@ -38,7 +41,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockRepository = new Mock<IRepositoryMessage>();
             var mockEmail = new Mock<IEmailService>();
-            ContactModel model = new ContactModel(mockRepository.Object, mockEmail.Object);
+            var mockILogger = new Mock<ILogger<ContactModel>>();
+            ContactModel model = new ContactModel(mockRepository.Object, mockEmail.Object, mockILogger.Object);
 
             //act
             var result = await model.OnPost() as RedirectToPageResult;
@@ -54,9 +58,10 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryMessage>();
+            var mockILogger = new Mock<ILogger<ContactModel>>();
             var mockEmail = new Mock<IEmailService>();
             mockEmail.Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Throws(new Exception());
-            ContactModel model = new ContactModel(mockRepository.Object, mockEmail.Object);
+            ContactModel model = new ContactModel(mockRepository.Object, mockEmail.Object, mockILogger.Object);
 
             //act
             var result = await model.OnPost() as RedirectToPageResult;
@@ -73,9 +78,9 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockRepository = new Mock<IRepositoryMessage>();
             mockRepository.Setup(x => x.SendMessage(It.IsAny<Message>())).Throws(new Exception("A aparut o eroare!"));
-
+            var mockILogger = new Mock<ILogger<ContactModel>>();
             var mockEmail = new Mock<IEmailService>();
-            ContactModel model = new ContactModel(mockRepository.Object, mockEmail.Object);
+            ContactModel model = new ContactModel(mockRepository.Object, mockEmail.Object, mockILogger.Object);
 
             //act
             var result = await model.OnPost() as RedirectToPageResult;

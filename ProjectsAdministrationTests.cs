@@ -1,9 +1,11 @@
-﻿using IPDImexWebsite.Controllers;
+﻿using Castle.Core.Logging;
+using IPDImexWebsite.Controllers;
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
 using System;
@@ -120,8 +122,9 @@ namespace IPDImexWebsiteUnitTests
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllProjectsWithoutPictures()).Returns(MockGetAllProjectsWithoutPictures());
             mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
 
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             //act
             var result = (await  controller.ProjectsPanel() as ViewResult)?.ViewData.Model as ProjectsAdministrationViewModel ?? new();
@@ -136,13 +139,38 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.TotalProjects, Is.EqualTo(4));
             });
         }
+        [Test]
+        public async Task ProjectPanel_ThrowsErrror_ReturnAdminInfo()
+        {
+            //arrange 
+            var mockProject = new Mock<IRepositoryProject>();
+            mockProject.Setup(x => x.GetAllProjectsWithoutPictures()).Throws(new Exception("error"));
+            mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+
+            //act
+            var result = await controller.ProjectsPanel() as RedirectToPageResult;
+
+            //assert
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mockProject.Verify(x => x.GetAllProjectsWithoutPictures(), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var project in mockProject.Object.GetAllProjectsWithoutPictures())
+                {
+                }
+            });
+        }
 
         [Test]
         public async Task SearchProjects_SearchCruteriaIsNull_ReturnToActionProjectsPanel()
         {
             //arrange 
             var mockProject = new Mock<IRepositoryProject>();
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             //act
             var result = await controller.SearchProjects() as RedirectToActionResult;
@@ -158,8 +186,9 @@ namespace IPDImexWebsiteUnitTests
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.SearchProjectsAsync(It.IsAny<string>())).Returns(MockGetAllProjectsWithoutPictures());
             mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
 
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             //act
             var result = (await controller.SearchProjects("test") as ViewResult)?.ViewData.Model as ProjectsAdministrationViewModel ?? new();
@@ -177,13 +206,38 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.SearchRequest, Is.True);
             });
         }
+        [Test]
+        public async Task SearchProject_ThrowsError_ReturnAdminInfo()
+        {
+            //arrange 
+            var mockProject = new Mock<IRepositoryProject>();
+            mockProject.Setup(x => x.SearchProjectsAsync(It.IsAny<string>())).Throws(new Exception("error"));
+            mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+
+            //act
+            var result = await controller.SearchProjects("test") as RedirectToPageResult;
+
+            //assert
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mockProject.Verify(x => x.SearchProjectsAsync(It.IsAny<string>()), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var project in mockProject.Object.SearchProjectsAsync("test"))
+                {
+                }
+            });
+        }
 
         [Test]
         public async Task DeleteProject_ProjectIsNull_ReturnAdminInfo()
         {
             //arrange 
             var mockProject = new Mock<IRepositoryProject>();
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             Project project = default!;
 
             //act
@@ -199,8 +253,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange 
             var mockProject = new Mock<IRepositoryProject>();
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
             mockProject.Setup(x => x.DeleteProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(false));
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             Project project = new Project();
 
             //act
@@ -217,7 +272,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange 
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.DeleteProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(true));
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object,mocklog.Object);
             Project project = new Project();
 
             //act
@@ -225,6 +281,25 @@ namespace IPDImexWebsiteUnitTests
 
             //assert
             Assert.That(result!.ActionName, Is.EqualTo("ProjectsPanel"));
+        }
+
+        [Test]
+        public async Task DeleteProject_ThrowsError_ReturnAdminInfo()
+        {
+            //arrange 
+            var mockProject = new Mock<IRepositoryProject>();
+            mockProject.Setup(x => x.DeleteProjectAsync(It.IsAny<Project>())).Throws(new Exception("error"));
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            Project project = new Project();
+
+            //act
+            var result = await controller.DeleteProject(project) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mockProject.Verify(x => x.DeleteProjectAsync(It.IsAny<Project>()), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () => await mockProject.Object.DeleteProjectAsync(new Project()));
         }
         #endregion
 
@@ -234,7 +309,8 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             controller.ModelState.AddModelError("modelStateIsNotValid", "test");
            
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
@@ -257,8 +333,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
-            
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
 
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
@@ -286,8 +363,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
 
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             var mockIFormFile1 = new Mock<IFormFile>();
             var mockIFormFile2 = new Mock<IFormFile>();
@@ -324,8 +402,8 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             var mockIFormFile1 = new Mock<IFormFile>();
             var mockIFormFile2 = new Mock<IFormFile>();
@@ -379,8 +457,8 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -418,8 +496,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
 
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
 
             byte[] fileData = new byte[] { 200 };
@@ -461,8 +540,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.AddProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(true));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
 
             byte[] fileData = new byte[] { 200 };
@@ -501,8 +580,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.AddProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(false));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
 
             byte[] fileData = new byte[] { 200 };
@@ -541,8 +620,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.AddProjectAsync(It.IsAny<Project>())).Throws(new Exception("An error occurred while adding the project"));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
 
             byte[] fileData = new byte[] { 200 };
@@ -587,8 +666,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-         
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             controller.ModelState.AddModelError("modelStateIsNotValid", "test");
 
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
@@ -631,8 +710,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
             {
@@ -675,8 +754,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -731,8 +810,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -795,8 +874,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -852,8 +931,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -911,8 +990,8 @@ namespace IPDImexWebsiteUnitTests
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
             mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -955,8 +1034,8 @@ namespace IPDImexWebsiteUnitTests
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
             mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
             mockProject.Setup(x => x.EditProject(It.IsAny<Project>())).Returns(async () => await Task.FromResult(false));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -998,8 +1077,8 @@ namespace IPDImexWebsiteUnitTests
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
             mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
             mockProject.Setup(x => x.EditProject(It.IsAny<Project>())).Returns(async () => await Task.FromResult(true));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object,mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -1041,8 +1120,8 @@ namespace IPDImexWebsiteUnitTests
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
             mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
             mockProject.Setup(x => x.EditProject(It.IsAny<Project>())).Throws(new Exception("An error ocurreed while editing the project"));
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object,mocklog.Object);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -1088,7 +1167,8 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange 
             var mockProject = new Mock<IRepositoryProject>();
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             Project project = default!;
 
@@ -1104,8 +1184,8 @@ namespace IPDImexWebsiteUnitTests
             //arrange 
             var mockProject = new Mock<IRepositoryProject>();
             mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-
-            var controller = new ProjectsAdministrationController(mockProject.Object);
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
 
             Project project = new Project()
             {
@@ -1138,6 +1218,36 @@ namespace IPDImexWebsiteUnitTests
             });
 
             mockProject.Verify(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>()), Times.Once());
+        }
+        [Test]
+        public async Task EditProject_ThrowsException_returnAdminInfo()
+        {
+            //arrange 
+            var mockProject = new Mock<IRepositoryProject>();
+            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Throws(new Exception("Error"));
+            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
+            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+
+            Project project = new Project()
+            {
+                Id = 1,
+                Title = "Test Title",
+                Description = "Test Description"
+            };
+
+            //act
+            var result = await controller.EditProject(project!) as RedirectToPageResult;
+
+            //assert
+            mockProject.Verify(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>()), Times.Once());
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var picture in mockProject.Object.GetAllPicturesOfSpecificProject(1))
+                {
+                    // no code needed
+                }
+            });
         }
         #endregion
 

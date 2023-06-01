@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Http;
 using System.Net.Http.Headers;
 using IPDImexWebsite.CustomServices;
 using System.Security.Cryptography.X509Certificates;
+using Castle.Core.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace IPDImexWebsiteUnitTests
 {
@@ -58,7 +60,9 @@ namespace IPDImexWebsiteUnitTests
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var mockLogger = new Mock<ILogger<CareersController>>();
+
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
             //act 
             var results = (await controller.Index() as ViewResult)?.ViewData.Model as CarrersViewModel ?? new();
@@ -78,11 +82,13 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockRepAplication = new Mock<IRepositoryAplication>();
             var mockEmail = new Mock<IEmailService>();
+            
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Throws(new Exception("A aparut o eroare!"));
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
             //act 
             var results = (await controller.Index() as ViewResult)?.ViewData.Model as CarrersViewModel ?? new();
@@ -108,7 +114,9 @@ namespace IPDImexWebsiteUnitTests
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var mockLogger = new Mock<ILogger<CareersController>>();
+
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
             controller.ModelState.AddModelError("error", "Test error");
 
             var viewModel = new CarrersViewModel();
@@ -132,9 +140,9 @@ namespace IPDImexWebsiteUnitTests
             var mockRepJob = new Mock<IRepositoryJob>();
             mockRepJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
 
-            //mock  IFormFile
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
 
             var viewModel = new CarrersViewModel
@@ -181,8 +189,9 @@ namespace IPDImexWebsiteUnitTests
             stream.Position = 0;
             IFormFile formFile = new FormFile(stream, 0, lengthLong, "id_from_form", fileName);
 
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
 
             var viewModel = new CarrersViewModel
@@ -236,8 +245,9 @@ namespace IPDImexWebsiteUnitTests
                 ContentType = "text/plain"
             };
 
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
 
             var viewModel = new CarrersViewModel
@@ -290,9 +300,9 @@ namespace IPDImexWebsiteUnitTests
                 Headers = new HeaderDictionary(),
                 ContentType = "application/pdf"
             };
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
-
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
             
 
@@ -349,9 +359,9 @@ namespace IPDImexWebsiteUnitTests
                 Headers = new HeaderDictionary(),
                 ContentType = "application/pdf"
             };
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
-
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
 
 
@@ -408,9 +418,9 @@ namespace IPDImexWebsiteUnitTests
                 Headers = new HeaderDictionary(),
                 ContentType = "application/pdf"
             };
+            var mockLogger = new Mock<ILogger<CareersController>>();
 
-
-            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object);
+            var controller = new CareersController(mockRepAplication.Object, mockRepJob.Object, mockEmail.Object, mockLogger.Object);
 
 
 

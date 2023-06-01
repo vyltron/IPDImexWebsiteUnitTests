@@ -3,6 +3,7 @@ using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -118,11 +119,12 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
             mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -138,11 +140,12 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
             mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -166,11 +169,12 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockMessages = new Mock<IRepositoryMessage>();
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
             mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -191,6 +195,29 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(messagesList[1].FirstName, Is.EqualTo("Andreea"));
             });
         }
+
+        [Test]
+        public async Task MessagePannel_ThrowsError()
+        {
+            //arrange
+            var mockMessages = new Mock<IRepositoryMessage>();
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
+            mockMessages.Setup(x => x.GetAllMessages()).Returns(MockGetMessages());
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Throws(new Exception("Eroare"));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
+
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
+            controller.PageSize = 2;
+
+            //act
+            var result = await controller.MessagesPanel(2) as RedirectToPageResult;
+
+            //assert
+            mockMessages.Verify(x => x.GetUnreadMessagesCount(), Times.Never());
+            mockMessages.Verify(x => x.GetAllMessages(), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () => await mockMessages.Object.GetAllMessagesCount());
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+        }
         #endregion
 
         #region Message Tests        
@@ -200,8 +227,9 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessage = new Mock<IRepositoryMessage>();
             mockMessage.Setup(c => c.GetMessageByIdAsync(It.IsAny<int>())).Returns( async (int messageId) =>  await Task.FromResult(default(Message)));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessage.Object);
+            var controller = new AdministrationController(mockMessage.Object, mockLogger.Object);
 
             //act
            var result = await controller.Message(2) as RedirectToPageResult;
@@ -216,8 +244,9 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessage = new Mock<IRepositoryMessage>();
             mockMessage.Setup(c => c.GetMessageByIdAsync(It.IsAny<int>())).Returns(MockGetMessageByIdAsyncClassificationUnread(2));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessage.Object);
+            var controller = new AdministrationController(mockMessage.Object, mockLogger.Object);
 
             //act
             var result = (await controller.Message(2) as ViewResult)?.ViewData.Model as Message ?? new();
@@ -233,10 +262,11 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockMessage = new Mock<IRepositoryMessage>();
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
             mockMessage.Setup(c => c.GetMessageByIdAsync(It.IsAny<int>())).Returns(MockGetMessageByIdAsyncClassificationUnread(2));
             mockMessage.Setup(c => c.MarksAsReadAsync(It.IsAny<Message>())).Returns(async () => await Task.FromResult(true));
 
-            var controller = new AdministrationController(mockMessage.Object);
+            var controller = new AdministrationController(mockMessage.Object, mockLogger.Object);
 
             //act
             var result = (await controller.Message(2) as ViewResult)?.ViewData.Model as Message ?? new();
@@ -250,14 +280,35 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockMessage = new Mock<IRepositoryMessage>();
             mockMessage.Setup(c => c.GetMessageByIdAsync(It.IsAny<int>())).Returns(MockGetMessageByIdAsyncClassificationRead(2));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessage.Object);
+            var controller = new AdministrationController(mockMessage.Object, mockLogger.Object);
 
             //act
             var result = (await controller.Message(2) as ViewResult)?.ViewData.Model as Message ?? new();
 
             //assert
             mockMessage.Verify(x => x.MarksAsReadAsync(It.IsAny<Message>()), Times.Never);
+        }
+
+        [Test]
+        public async Task Message_ThrowsError_ReturnMessageView()
+        {
+            //arrange
+            var mockMessage = new Mock<IRepositoryMessage>();
+            mockMessage.Setup(c => c.GetMessageByIdAsync(It.IsAny<int>())).Throws(new Exception("eroare"));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
+
+            var controller = new AdministrationController(mockMessage.Object, mockLogger.Object);
+
+            //act
+            var result = await controller.Message(2) as RedirectToPageResult;
+
+            //assert
+            mockMessage.Verify(x => x.MarksAsReadAsync(It.IsAny<Message>()), Times.Never);
+            mockMessage.Verify(x => x.GetMessageByIdAsync(It.IsAny<int>()), Times.Once);
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            Assert.ThrowsAsync<Exception>(async () => await mockMessage.Object.GetMessageByIdAsync(2));
         }
         #endregion
 
@@ -268,9 +319,9 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mock = new Mock<IRepositoryMessage>();
             mock.Setup(x => x.DeleteMessageAsync(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
-
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
             //act
-            var controller = new AdministrationController(mock.Object);
+            var controller = new AdministrationController(mock.Object, mockLogger.Object);
             var result = await controller.DeleteMessage(1) as RedirectToActionResult;
 
             //assert
@@ -282,13 +333,31 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mock = new Mock<IRepositoryMessage>();
             mock.Setup(x => x.DeleteMessageAsync(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
-
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
             //act
-            var controller = new AdministrationController(mock.Object);
+            var controller = new AdministrationController(mock.Object, mockLogger.Object);
             var result = await controller.DeleteMessage(1) as RedirectToPageResult;
 
             //assert
             Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+        }
+
+        [Test]
+        public async Task DeleteMessage_THrowsError_RedirectToAdminInfo()
+        {
+            //arrange
+            var mock = new Mock<IRepositoryMessage>();
+            mock.Setup(x => x.DeleteMessageAsync(It.IsAny<int>())).Throws(new Exception("eroare"));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
+            //act
+            var controller = new AdministrationController(mock.Object, mockLogger.Object);
+            var result = await controller.DeleteMessage(1) as RedirectToPageResult;
+
+            //assert
+
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mock.Verify(x => x.DeleteMessageAsync(It.IsAny<int>()), Times.Once);
+            Assert.ThrowsAsync<Exception>(async () => await mock.Object.DeleteMessageAsync(It.IsAny<int>()));
         }
         #endregion
 
@@ -300,8 +369,8 @@ namespace IPDImexWebsiteUnitTests
         {
             //assert
             var mock = new Mock<IRepositoryMessage>();
-
-            var controller = new AdministrationController(mock.Object);
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
+            var controller = new AdministrationController(mock.Object, mockLogger.Object);
 
             //act
            var result = await controller.SearchMessages(searchCriteria, 1) as RedirectToActionResult;
@@ -318,8 +387,9 @@ namespace IPDImexWebsiteUnitTests
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -337,8 +407,9 @@ namespace IPDImexWebsiteUnitTests
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -363,8 +434,9 @@ namespace IPDImexWebsiteUnitTests
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -393,8 +465,9 @@ namespace IPDImexWebsiteUnitTests
             mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
             mockMessages.Setup(x => x.GetAllMessagesCount()).Returns(Task.FromResult(25));
             mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
 
-            var controller = new AdministrationController(mockMessages.Object);
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -406,6 +479,29 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.SearchRequest, Is.EqualTo(true));
                 Assert.That(result.SearchCriteria, Is.EqualTo("Test"));
             });
+
+        }
+        [Test]
+        public async Task SearchMessages_ThrowsError()
+        {
+            //arrange
+            var mockMessages = new Mock<IRepositoryMessage>();
+            mockMessages.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
+            mockMessages.Setup(x => x.GetAllMessagesCount()).Throws(new Exception("Eroare"));
+            mockMessages.Setup(x => x.GetUnreadMessagesCount()).Returns(Task.FromResult(12));
+            var mockLogger = new Mock<ILogger<AdministrationController>>();
+
+            var controller = new AdministrationController(mockMessages.Object, mockLogger.Object);
+            controller.PageSize = 2;
+
+            //act
+            var result = await controller.SearchMessages("Test", 2) as RedirectToPageResult;
+
+            //assert
+            mockMessages.Verify(x => x.GetAllMessagesCount(), Times.Once);
+            mockMessages.Verify(x => x.GetUnreadMessagesCount(), Times.Never);
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            Assert.ThrowsAsync<Exception>(async () => await mockMessages.Object.GetAllMessagesCount());
         }
 
         #endregion

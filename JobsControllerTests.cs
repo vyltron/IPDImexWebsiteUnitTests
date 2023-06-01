@@ -5,12 +5,14 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using Castle.Core.Logging;
 using IPDImexWebsite.Controllers;
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace IPDImexWebsiteUnitTests
@@ -55,10 +57,11 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
+            var mockILogger = new Mock<ILogger<JobsController>>();
             mockJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
             mockJob.Setup(x => x.GetJobsCountAsync()).Returns(async () => await Task.FromResult(4));
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             //act
             var result = (await controller.JobsPanel() as ViewResult)?.ViewData.Model as JobsViewModel ?? new();
@@ -75,6 +78,32 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.TotalJobs, Is.EqualTo(4));
             });
         }
+        [Test]
+        public async Task JobsPanel_ThrowsException_ReturnAdminInfo()
+        {
+            //arrange
+            var mockJob = new Mock<IRepositoryJob>();
+            var mockILogger = new Mock<ILogger<JobsController>>();
+            mockJob.Setup(x => x.GetJobsAsync()).Throws(new Exception("Eroare"));
+            mockJob.Setup(x => x.GetJobsCountAsync()).Returns(async () => await Task.FromResult(4));
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
+
+            //act
+            var result = await controller.JobsPanel() as RedirectToPageResult;
+
+            //assert 
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mockJob.Verify(x => x.GetJobsAsync(), Times.Once);
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var job in mockJob.Object.GetJobsAsync())
+                {
+                    //no code needed
+                }
+            }
+            );
+        }
         #region DeleteJob
 
         [Test]
@@ -84,7 +113,9 @@ namespace IPDImexWebsiteUnitTests
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.DeleteJobAsync(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
 
-            var controller = new JobsController(mockJob.Object);
+            var mockILogger = new Mock<ILogger<JobsController>>();
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             //act
             var result = await controller.DeleteJob(2) as RedirectToPageResult;
@@ -100,7 +131,9 @@ namespace IPDImexWebsiteUnitTests
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.DeleteJobAsync(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
 
-            var controller = new JobsController(mockJob.Object);
+            var mockILogger = new Mock<ILogger<JobsController>>();
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             //act
             var result = await controller.DeleteJob(2) as RedirectToActionResult;
@@ -108,7 +141,26 @@ namespace IPDImexWebsiteUnitTests
             //assert
             Assert.That(result?.ActionName, Is.EqualTo("JobsPanel"));
         }
-#endregion
+        [Test]
+        public async Task DeleteJob_ThrowsException_ReturnAdminInfo()
+        {
+            //arrange
+            var mockJob = new Mock<IRepositoryJob>();
+            mockJob.Setup(x => x.DeleteJobAsync(It.IsAny<int>())).Throws(new Exception("error"));
+
+            var mockILogger = new Mock<ILogger<JobsController>>();
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
+
+            //act
+            var result = await controller.DeleteJob(2) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result?.PageName, Is.EqualTo("/AdminInfo"));
+            mockJob.Verify(x => x.DeleteJobAsync(It.IsAny<int>()) ,Times.Once());
+            Assert.ThrowsAsync<Exception>(async () => await mockJob.Object.DeleteJobAsync(2));
+        }
+        #endregion
 
         #region AddJob
         [Test]
@@ -118,8 +170,9 @@ namespace IPDImexWebsiteUnitTests
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
             mockJob.Setup(x => x.GetJobsCountAsync()).Returns(async () => await Task.FromResult(4));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
             controller.ModelState.AddModelError("error", "Test Error");
             
             //act
@@ -145,9 +198,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
-           
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
           
             Job job = default(Job)!;
 
@@ -166,9 +219,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
-
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = new Job { JobName = jobName };
 
@@ -186,10 +239,11 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
+            var mockILogger = new Mock<ILogger<JobsController>>();
             mockJob.Setup(x => x.AddJob(It.IsAny<Job>())).Returns(async () => await Task.FromResult(false));
 
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = new Job { JobName = "test" };
 
@@ -207,9 +261,10 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.AddJob(It.IsAny<Job>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = new Job { JobName = "test" };
 
@@ -220,7 +275,29 @@ namespace IPDImexWebsiteUnitTests
             Assert.That(result?.ActionName, Is.EqualTo("JobsPanel"));
             mockJob.Verify(x => x.AddJob(It.IsAny<Job>()), Times.Once());
         }
-#endregion
+
+        [Test]
+        public async Task AddJob_ThrowsException_ReturnAdminInfo()
+        {
+            //arrange
+            var mockJob = new Mock<IRepositoryJob>();
+            mockJob.Setup(x => x.AddJob(It.IsAny<Job>())).Throws(new Exception("eroare"));
+            var mockILogger = new Mock<ILogger<JobsController>>();
+
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
+
+            Job job = new Job { JobName = "test" };
+
+            //act
+            var result = await controller.AddJob(job) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result?.PageName, Is.EqualTo("/AdminInfo"));
+            mockJob.Verify(x => x.AddJob(It.IsAny<Job>()), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () => await mockJob.Object.AddJob(job));
+        }
+        #endregion
 
         #region EditJob
         [Test]
@@ -230,7 +307,10 @@ namespace IPDImexWebsiteUnitTests
             var mockJob = new Mock<IRepositoryJob>();  
             mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
 
-            var controller = new JobsController(mockJob.Object);
+            var mockILogger = new Mock<ILogger<JobsController>>();
+
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             //act
             var result = await controller.EditJob(new Job { JobName ="test" }, 1) as RedirectToPageResult;
@@ -247,8 +327,9 @@ namespace IPDImexWebsiteUnitTests
             mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
             mockJob.Setup(x => x.GetJobsAsync()).Returns(MockGetJobs());
             mockJob.Setup(x => x.GetJobsCountAsync()).Returns(async () => await Task.FromResult(4));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
             controller.ModelState.AddModelError("error", "error test");
 
             //act
@@ -271,9 +352,10 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = default(Job)!;
 
@@ -294,9 +376,10 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = new Job { JobName = jobName};
 
@@ -315,9 +398,10 @@ namespace IPDImexWebsiteUnitTests
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
             mockJob.Setup(x => x.EditJob(It.IsAny<Job>())).Returns(async () => await Task.FromResult(false));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = new Job { JobName = "test" };
 
@@ -336,9 +420,10 @@ namespace IPDImexWebsiteUnitTests
             var mockJob = new Mock<IRepositoryJob>();
             mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
             mockJob.Setup(x => x.EditJob(It.IsAny<Job>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobsController>>();
 
 
-            var controller = new JobsController(mockJob.Object);
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
 
             Job job = new Job { JobName = "test" };
 
@@ -348,6 +433,28 @@ namespace IPDImexWebsiteUnitTests
             //assert
             Assert.That(result?.ActionName, Is.EqualTo("JobsPanel"));
             mockJob.Verify(x => x.EditJob(It.IsAny<Job>()), Times.Once());
+        }
+        [Test]
+        public async Task EditJob_ThrowsError_ReturnAdminInfo()
+        {
+            //arrange
+            var mockJob = new Mock<IRepositoryJob>();
+            mockJob.Setup(x => x.JobExistById(It.IsAny<int>())).Throws(new Exception("Error"));
+            mockJob.Setup(x => x.EditJob(It.IsAny<Job>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobsController>>();
+
+
+            var controller = new JobsController(mockJob.Object, mockILogger.Object);
+
+            Job job = new Job { JobName = "test" };
+
+            //act
+            var result = await controller.EditJob(job, 1) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result?.PageName, Is.EqualTo("/AdminInfo"));
+            mockJob.Verify(x => x.JobExistById(It.IsAny<int>()), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () => await mockJob.Object.JobExistById(It.IsAny<int>()));
         }
 
 

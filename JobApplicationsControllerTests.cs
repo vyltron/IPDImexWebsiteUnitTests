@@ -8,6 +8,7 @@ using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace IPDImexWebsiteUnitTests
@@ -131,8 +132,9 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.GetAllAplications()).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -150,8 +152,9 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.GetAllAplications()).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -177,9 +180,10 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.GetAllAplications()).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -200,6 +204,35 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(messagesList[1].FirstName, Is.EqualTo("Mercedes"));
             });
         }
+        [Test]
+        public async Task JobAplicationsPanel_ThrowsException_ReturnAdminInfo()
+        {
+            //arrange
+            var mockAplications = new Mock<IRepositoryAplication>();
+            mockAplications.Setup(x => x.GetAllAplications()).Throws(new Exception("error"));
+            mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
+            mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
+
+
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
+            controller.PageSize = 2;
+
+            //act
+            var result = await controller.JobApplicationsPanel(2) as RedirectToPageResult;
+
+
+            //assert
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mockAplications.Verify(x => x.GetAllAplications(), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach(var app in mockAplications.Object.GetAllAplications())
+                {
+                    //no code needed
+                }
+            });
+        }
         #endregion
 
         #region Applications
@@ -209,8 +242,9 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockAplications = new Mock<IRepositoryAplication>();
             mockAplications.Setup(c => c.GetAplicationByIdAsync(It.IsAny<int>())).Returns(async (int applicationId) => await Task.FromResult(default(Aplication)));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
 
             //act
             var result = await controller.Application(2) as RedirectToPageResult;
@@ -224,8 +258,9 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockAplication = new Mock<IRepositoryAplication>();
             mockAplication.Setup(c => c.GetAplicationByIdAsync(It.IsAny<int>())).Returns(MockGetAplicationByIdAsyncClassificationUnread(2));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplication.Object);
+            var controller = new JobApplicationsController(mockAplication.Object, mockILogger.Object);
 
             //act
             var result = (await controller.Application(2) as ViewResult)?.ViewData.Model as Aplication ?? new();
@@ -242,8 +277,9 @@ namespace IPDImexWebsiteUnitTests
             var mockAplication = new Mock<IRepositoryAplication>();
             mockAplication.Setup(c => c.GetAplicationByIdAsync(It.IsAny<int>())).Returns(MockGetAplicationByIdAsyncClassificationUnread(2));
             mockAplication.Setup(c => c.MarksAsReadAsync(It.IsAny<Aplication>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplication.Object);
+            var controller = new JobApplicationsController(mockAplication.Object, mockILogger.Object);
 
             //act
             var result = (await controller.Application(2) as ViewResult)?.ViewData.Model as Aplication ?? new();
@@ -257,14 +293,34 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mockAplication = new Mock<IRepositoryAplication>();
             mockAplication.Setup(c => c.GetAplicationByIdAsync(It.IsAny<int>())).Returns(MockGetAplicationByIdAsyncClassificationRead(2));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplication.Object);
+            var controller = new JobApplicationsController(mockAplication.Object, mockILogger.Object);
 
             //act
             var result = (await controller.Application(2) as ViewResult)?.ViewData.Model as Aplication ?? new();
 
             //assert
             mockAplication.Verify(x => x.MarksAsReadAsync(It.IsAny<Aplication>()), Times.Never);
+        }
+        [Test]
+        public async Task Aplication_ThrowsError_ReturnAdminInfo()
+        {
+            //arrange
+            var mockAplication = new Mock<IRepositoryAplication>();
+            mockAplication.Setup(c => c.GetAplicationByIdAsync(It.IsAny<int>())).Throws(new Exception("error"));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
+
+
+            var controller = new JobApplicationsController(mockAplication.Object, mockILogger.Object);
+
+            //act
+            var result = await controller.Application(2) as RedirectToPageResult;
+
+            //assert
+            mockAplication.Verify(x => x.GetAplicationByIdAsync(It.IsAny<int>()), Times.Once);
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            Assert.ThrowsAsync<Exception>(async () => await mockAplication.Object.GetAplicationByIdAsync(2));
         }
         #endregion
 
@@ -275,9 +331,10 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mock = new Mock<IRepositoryAplication>();
             mock.Setup(x => x.DeleteAplicationAsync(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
             //act
-            var controller = new JobApplicationsController(mock.Object);
+            var controller = new JobApplicationsController(mock.Object, mockILogger.Object);
             var result = await controller.DeleteApplication(1) as RedirectToActionResult;
 
             //assert
@@ -289,13 +346,32 @@ namespace IPDImexWebsiteUnitTests
             //arrange
             var mock = new Mock<IRepositoryAplication>();
             mock.Setup(x => x.DeleteAplicationAsync(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
             //act
-            var controller = new JobApplicationsController(mock.Object);
+            var controller = new JobApplicationsController(mock.Object, mockILogger.Object);
             var result = await controller.DeleteApplication(1) as RedirectToPageResult;
 
             //assert
             Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+        }
+
+        [Test]
+        public async Task DeleteAplication_ThrowsError_ReturnAdminPage()
+        {
+            //arrange
+            var mock = new Mock<IRepositoryAplication>();
+            mock.Setup(x => x.DeleteAplicationAsync(It.IsAny<int>())).Throws(new Exception("error"));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
+
+            //act
+            var controller = new JobApplicationsController(mock.Object, mockILogger.Object);
+            var result = await controller.DeleteApplication(1) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            Assert.ThrowsAsync<Exception>(async () => await mock.Object.DeleteAplicationAsync(It.IsAny<int>()));
+            mock.Verify(x => x.DeleteAplicationAsync(It.IsAny<int>()));
         }
         #endregion
 
@@ -307,8 +383,9 @@ namespace IPDImexWebsiteUnitTests
         {
             //assert
             var mock = new Mock<IRepositoryAplication>();
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mock.Object);
+            var controller = new JobApplicationsController(mock.Object, mockILogger.Object);
 
             //act
             var result = await controller.SearchApplications(searchCriteria, 1) as RedirectToActionResult;
@@ -324,9 +401,10 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -344,8 +422,9 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 10;
 
             //act
@@ -370,8 +449,9 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 2;
 
             
@@ -401,8 +481,9 @@ namespace IPDImexWebsiteUnitTests
             mockAplications.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetApplications());
             mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(Task.FromResult(25));
             mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
 
-            var controller = new JobApplicationsController(mockAplications.Object);
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -413,6 +494,30 @@ namespace IPDImexWebsiteUnitTests
             {
                 Assert.That(result.SearchRequest, Is.EqualTo(true));
                 Assert.That(result.SearchCriteria, Is.EqualTo("Test"));
+            });
+        }
+        [Test]
+        public async Task SearchApplications_ThrowsError_ReturnAdminInfo()
+        {
+            //arrange
+            var mockAplications = new Mock<IRepositoryAplication>();
+            mockAplications.Setup(x => x.SearchAsync(It.IsAny<string>())).Throws(new Exception("Error"));
+            mockAplications.Setup(x => x.GetAllAplicationsCount()).Returns(async () => await Task.FromResult(25));
+            mockAplications.Setup(x => x.GetUnreadAplicationsCount()).Returns(Task.FromResult(12));
+            var mockILogger = new Mock<ILogger<JobApplicationsController>>();
+
+            var controller = new JobApplicationsController(mockAplications.Object, mockILogger.Object);
+            controller.PageSize = 2;
+
+            //act
+            var result = await controller.SearchApplications("Test", 2) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
+            mockAplications.Verify(x => x.SearchAsync(It.IsAny<string>()), Times.Once);
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var app in mockAplications.Object.SearchAsync("Test")) ;
             });
         }
         #endregion

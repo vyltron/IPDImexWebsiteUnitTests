@@ -1,12 +1,16 @@
-﻿using IPDImexWebsite.Controllers;
+﻿using Castle.Core.Logging;
+using IPDImexWebsite.Controllers;
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
+using NuGet.Frameworks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -21,29 +25,16 @@ namespace IPDImexWebsiteUnitTests
             {
                 new Project
                 {
-                    Id = 1,
-                    Title= "Test1",
-                    Description= "Test1Description",
-                },
-                new Project
-                {
                     Id = 2,
                     Title= "Test2",
                     Description= "Test2Description",
                 },
                 new Project
                 {
-                    Id = 3,
-                    Title= "Test3",
-                    Description= "Test3Description",
+                    Id = 1,
+                    Title= "Test1",
+                    Description= "Test1Description",
                 },
-                new Project
-                {
-                    Id = 4,
-                    Title= "Test4",
-                    Description= "Test4Description",
-                }
-
             };
 
             foreach(var project in mockData)
@@ -58,9 +49,10 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetAllProjectsIncludePictures()).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
+            var mockILogger = new Mock<ILogger<ProjectsController>>();
 
-            var controller = new ProjectsController(mockRepository.Object);
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -84,9 +76,11 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetAllProjectsIncludePictures()).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(2));
+            var mockILogger = new Mock<ILogger<ProjectsController>>();
 
-            var controller = new ProjectsController(mockRepository.Object);
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
             controller.PageSize = 2;
 
             //act
@@ -97,8 +91,33 @@ namespace IPDImexWebsiteUnitTests
             {
                 Assert.That(result.Pagination.ItemsPerPage, Is.EqualTo(2));
                 Assert.That(result.Pagination.CurrentPage, Is.EqualTo(2));
-                Assert.That(result.Pagination.TotalItems, Is.EqualTo(4));
-                Assert.That(result.Pagination.TotalPages, Is.EqualTo(2));
+                Assert.That(result.Pagination.TotalItems, Is.EqualTo(2));
+                Assert.That(result.Pagination.TotalPages, Is.EqualTo(1));
+            });
+        }
+        [Test]
+        public async Task Index_ThrowsError_ReturnAdminInfo()
+        {
+            //arrange
+            var mockRepository = new Mock<IRepositoryProject>();
+            mockRepository.Setup(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Throws(new Exception("error"));
+            mockRepository.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(2));
+            var mockILogger = new Mock<ILogger<ProjectsController>>();
+
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+            controller.PageSize = 2;
+
+            //act
+            var result = (await controller.Index(2) as ViewResult)?.ViewData.Model as ProjectsViewModel ?? new();
+
+            //assert
+            mockRepository.Verify(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>()), Times.Once());
+            Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await foreach (var projects in mockRepository.Object.GetProjectsIncludePicturesWithPaginationInDescendingOrder(1, 1))
+                {
+                    //no code needed
+                }
             });
         }
     }
