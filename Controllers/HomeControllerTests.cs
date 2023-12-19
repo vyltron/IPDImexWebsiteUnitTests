@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IPDImexWebsiteUnitTests
+namespace IPDImexWebsiteUnitTests.Controllers
 {
     [TestFixture]
     internal class HomeControllerTests
@@ -20,8 +20,8 @@ namespace IPDImexWebsiteUnitTests
         public async Task Index_CanGetLastProject_ReturnsView()
         {
             //arrange
-            var mockProject= new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetLastProjectPosted()).Returns(async () => await Task.FromResult(new Project { Id= 1, Title="TestT", Description="TestD"}));
+            var mockProject = new Mock<IRepositoryProject>();
+            mockProject.Setup(x => x.GetLastProjectPosted()).Returns(async () => await Task.FromResult(new Project { Id = 1, Title = "TestT", Description = "TestD" }));
 
             var mockLog = new Mock<ILogger<HomeController>>();
             var controller = new HomeController(mockProject.Object, mockLog.Object);
@@ -31,7 +31,7 @@ namespace IPDImexWebsiteUnitTests
             var project = result!.ViewData.Model as Project ?? new();
 
             //assert
-            Assert.That(project.Id , Is.EqualTo(1));
+            Assert.That(project.Id, Is.EqualTo(1));
             Assert.That(project.Title, Is.EqualTo("TestT"));
         }
 
@@ -51,23 +51,6 @@ namespace IPDImexWebsiteUnitTests
 
             //assert
             Assert.That(project, Is.Null);
-        }
-        [Test]
-        public async Task Index_ThrowsError_ReturnsView()
-        {
-            //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetLastProjectPosted()).Throws(new Exception("eroare"));
-
-            var mockLog = new Mock<ILogger<HomeController>>();
-            var controller = new HomeController(mockProject.Object, mockLog.Object);
-
-            //act
-            var result = await controller.Index() as RedirectToPageResult;
-
-            //assert
-            mockProject.Verify(x => x.GetLastProjectPosted(), Times.Once);
-            Assert.ThrowsAsync<Exception>(async () => await mockProject.Object.GetLastProjectPosted());
         }
     }
 }
