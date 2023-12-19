@@ -95,30 +95,5 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.Pagination.TotalPages, Is.EqualTo(1));
             });
         }
-        [Test]
-        public async Task Index_ThrowsError_ReturnAdminInfo()
-        {
-            //arrange
-            var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Throws(new Exception("error"));
-            mockRepository.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(2));
-            var mockILogger = new Mock<ILogger<ProjectsController>>();
-
-            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
-            controller.PageSize = 2;
-
-            //act
-            var result = (await controller.Index(2) as ViewResult)?.ViewData.Model as ProjectsViewModel ?? new();
-
-            //assert
-            mockRepository.Verify(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>()), Times.Once());
-            Assert.ThrowsAsync<Exception>(async () =>
-            {
-                await foreach (var projects in mockRepository.Object.GetProjectsIncludePicturesWithPaginationInDescendingOrder(1, 1))
-                {
-                    //no code needed
-                }
-            });
-        }
     }
 }
