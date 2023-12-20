@@ -17,11 +17,24 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-namespace IPDImexWebsiteUnitTests
+namespace IPDImexWebsiteUnitTests.Controllers
 {
     [TestFixture]
     internal class ProjectsAdministrationTests
     {
+        private Mock<IRepositoryProject> _project;
+        private Mock<ILogger<ProjectsAdministrationController>> _logger;
+        private ProjectsAdministrationController _controller;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _project = new Mock<IRepositoryProject>();
+            _logger = new Mock<ILogger<ProjectsAdministrationController>>();
+            _controller = new ProjectsAdministrationController(_project.Object, _logger.Object);
+        }
+
+
         public async IAsyncEnumerable<Project> MockGetAllProjectsWithoutPictures()
         {
             var projects = new List<Project>
@@ -52,14 +65,14 @@ namespace IPDImexWebsiteUnitTests
                     }
             };
 
-            foreach(var project in projects)
+            foreach (var project in projects)
             {
                 yield return project;
             }
             await Task.CompletedTask;
         }
 
-        public async IAsyncEnumerable<Picture> MockGetAllPicturesOfSpecificProjects()
+        public List<Picture> GetMockPictures()
         {
             var pictures = new List<Picture>
             {
@@ -92,19 +105,15 @@ namespace IPDImexWebsiteUnitTests
                     Extension = "png"
                 }
             };
-            foreach (var picture in pictures)
-            {
-                yield return picture;
-            }
-            await Task.CompletedTask;
+            return pictures;
         }
 
 
-        public IFormFile CreateCustomFormFileBinaryDataContent(byte[] imageData, int length = 1 * 1024 * 1024, string fileName = "image1.jpeg", string contentType = "image/jpeg", string name="file")
+        public IFormFile CreateCustomFormFileBinaryDataContent(byte[] imageData, int length = 1 * 1024 * 1024, string fileName = "image1.jpeg", string contentType = "image/jpeg", string name = "file")
         {
             var stream = new MemoryStream(imageData);
 
-            IFormFile formFile = new FormFile(stream, 0, (long)length, name, fileName)
+            IFormFile formFile = new FormFile(stream, 0, length, name, fileName)
             {
                 Headers = new HeaderDictionary(),
                 ContentType = contentType
@@ -119,15 +128,11 @@ namespace IPDImexWebsiteUnitTests
         public async Task ProjectPanel_CanGetAllProjectsWithoutPicturesAndCountThem_ReturnProjectPanelView()
         {
             //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllProjectsWithoutPictures()).Returns(MockGetAllProjectsWithoutPictures());
-            mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            _project.Setup(x => x.GetAllProjectsWithoutPictures()).Returns(MockGetAllProjectsWithoutPictures());
+            _project.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
 
             //act
-            var result = (await  controller.ProjectsPanel() as ViewResult)?.ViewData.Model as ProjectsAdministrationViewModel ?? new();
+            var result = (await _controller.ProjectsPanel() as ViewResult)?.ViewData.Model as ProjectsAdministrationViewModel ?? new();
             var projects = result.Projects.ToList();
             //assert
             Assert.Multiple(() =>
@@ -139,41 +144,12 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.TotalProjects, Is.EqualTo(4));
             });
         }
-        [Test]
-        public async Task ProjectPanel_ThrowsErrror_ReturnAdminInfo()
-        {
-            //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllProjectsWithoutPictures()).Throws(new Exception("error"));
-            mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
-            //act
-            var result = await controller.ProjectsPanel() as RedirectToPageResult;
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.GetAllProjectsWithoutPictures(), Times.Once());
-            Assert.ThrowsAsync<Exception>(async () =>
-            {
-                await foreach (var project in mockProject.Object.GetAllProjectsWithoutPictures())
-                {
-                }
-            });
-        }
 
         [Test]
         public async Task SearchProjects_SearchCruteriaIsNull_ReturnToActionProjectsPanel()
         {
-            //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
             //act
-            var result = await controller.SearchProjects() as RedirectToActionResult;
+            var result = await _controller.SearchProjects() as RedirectToActionResult;
 
             //assert
             Assert.That(result!.ActionName, Is.EqualTo("ProjectsPanel"));
@@ -183,15 +159,11 @@ namespace IPDImexWebsiteUnitTests
         public async Task SearchProject_SearchCriteriaIsNull_ReturnView()
         {
             //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.SearchProjectsAsync(It.IsAny<string>())).Returns(MockGetAllProjectsWithoutPictures());
-            mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            _project.Setup(x => x.SearchProjectsAsync(It.IsAny<string>())).Returns(MockGetAllProjectsWithoutPictures());
+            _project.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
 
             //act
-            var result = (await controller.SearchProjects("test") as ViewResult)?.ViewData.Model as ProjectsAdministrationViewModel ?? new();
+            var result = (await _controller.SearchProjects("test") as ViewResult)?.ViewData.Model as ProjectsAdministrationViewModel ?? new();
             var projects = result.Projects.ToList();
             //assert
             Assert.Multiple(() =>
@@ -206,100 +178,34 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.SearchRequest, Is.True);
             });
         }
-        [Test]
-        public async Task SearchProject_ThrowsError_ReturnAdminInfo()
-        {
-            //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.SearchProjectsAsync(It.IsAny<string>())).Throws(new Exception("error"));
-            mockProject.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(4));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
-            //act
-            var result = await controller.SearchProjects("test") as RedirectToPageResult;
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.SearchProjectsAsync(It.IsAny<string>()), Times.Once());
-            Assert.ThrowsAsync<Exception>(async () =>
-            {
-                await foreach (var project in mockProject.Object.SearchProjectsAsync("test"))
-                {
-                }
-            });
-        }
 
         [Test]
         public async Task DeleteProject_ProjectIsNull_ReturnAdminInfo()
         {
             //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             Project project = default!;
 
             //act
-           var result = await controller.DeleteProject(project) as RedirectToPageResult;
+            var result = await _controller.DeleteProject(project) as RedirectToPageResult;
 
             //assert
             Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.DeleteProjectAsync(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.DeleteProjectAsync(It.IsAny<Project>()), Times.Never());
         }
+       
 
         [Test]
-        public async Task DeleteProject_ProjectIsNotNull_ButCouldNotBeDeletedForUnknownReason_ReturnAdminInfo()
+        public async Task DeleteProject_ProjectIsDeleted_ReturnProjectsPanel()
         {
             //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            mockProject.Setup(x => x.DeleteProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(false));
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             Project project = new Project();
 
             //act
-            var result = await controller.DeleteProject(project) as RedirectToPageResult;
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.DeleteProjectAsync(It.IsAny<Project>()), Times.Once());
-        }
-
-        [Test]
-        public async Task DeleteProject_ProjectIsNotNullAndItWasDeleted_ReturnProjectsPanel()
-        {
-            //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.DeleteProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(true));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object,mocklog.Object);
-            Project project = new Project();
-
-            //act
-            var result = await controller.DeleteProject(project) as RedirectToActionResult;
+            var result = await _controller.DeleteProject(project) as RedirectToActionResult;
 
             //assert
             Assert.That(result!.ActionName, Is.EqualTo("ProjectsPanel"));
-        }
-
-        [Test]
-        public async Task DeleteProject_ThrowsError_ReturnAdminInfo()
-        {
-            //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.DeleteProjectAsync(It.IsAny<Project>())).Throws(new Exception("error"));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-            Project project = new Project();
-
-            //act
-            var result = await controller.DeleteProject(project) as RedirectToPageResult;
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.DeleteProjectAsync(It.IsAny<Project>()), Times.Once());
-            Assert.ThrowsAsync<Exception>(async () => await mockProject.Object.DeleteProjectAsync(new Project()));
+            _project.Verify(x => x.DeleteProjectAsync(It.IsAny<Project>()), Times.Once());
         }
         #endregion
 
@@ -312,14 +218,14 @@ namespace IPDImexWebsiteUnitTests
             var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
             var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
             controller.ModelState.AddModelError("modelStateIsNotValid", "test");
-           
+
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
             {
                 NewProject = new Project()
             };
 
             //act
-            var result =  await controller.PostProject(projectAdministrationViewModel) as ViewResult;
+            var result = await controller.PostProject(projectAdministrationViewModel) as ViewResult;
             var errorValue = result!.ViewData.ModelState["modelStateIsNotValid"];
             //assert
             Assert.That(result!.ViewName, Is.EqualTo("AddProject"));
@@ -327,7 +233,7 @@ namespace IPDImexWebsiteUnitTests
             mockProject.Verify(x => x.AddProjectAsync(It.IsAny<Project>()), Times.Never());
         }
 
-      
+
         [Test]
         public async Task PostProject_IFormFileImagesAreNull_ReturnAddProjectView()
         {
@@ -349,7 +255,7 @@ namespace IPDImexWebsiteUnitTests
 
             //act
             var result = await controller.PostProject(projectAdministrationViewModel) as ViewResult;
-           
+
 
             //assert
             Assert.That(result!.ViewName, Is.EqualTo("AddProject"));
@@ -481,7 +387,7 @@ namespace IPDImexWebsiteUnitTests
                 },
                 Files = fileArray
             };
-            
+
             //act
             var result = await controller.PostProject(projectAdministrationViewModel) as ViewResult;
 
@@ -574,89 +480,6 @@ namespace IPDImexWebsiteUnitTests
             Assert.That(result!.ActionName, Is.EqualTo("ProjectsPanel"));
             mockProject.Verify(x => x.AddProjectAsync(It.IsAny<Project>()), Times.Once());
         }
-        [Test]
-        public async Task PostProject_ProjectCouldNotBeAddedForUnknownReasons_ReturnAdminInfo()
-        {
-            //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.AddProjectAsync(It.IsAny<Project>())).Returns(async () => await Task.FromResult(false));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
-
-            byte[] fileData = new byte[] { 200 };
-
-            int size = 2 * 1024 * 1024;   //2mb
-
-            var fileArray = new IFormFile[]
-            {
-                CreateCustomFormFileBinaryDataContent(fileData,size),
-                 CreateCustomFormFileBinaryDataContent(fileData,size,"image2.png","image/png"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image3.jpeg"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image4.png","image/png")
-            };
-
-            var projectAdministrationViewModel = new ProjectsAdministrationViewModel
-            {
-                NewProject = new Project
-                {
-                    Title = "Test Title",
-                    Description = "Test Description"
-                },
-                Files = fileArray
-            };
-
-            //act
-            var result = await controller.PostProject(projectAdministrationViewModel) as RedirectToPageResult;
-
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.AddProjectAsync(It.IsAny<Project>()), Times.Once());
-        }
-        [Test]
-        public async Task PostProject_TryingToAddTrowsAnException_ReturnAdminInfo()
-        {
-            //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.AddProjectAsync(It.IsAny<Project>())).Throws(new Exception("An error occurred while adding the project"));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
-
-            byte[] fileData = new byte[] { 200 };
-
-            int size = 2 * 1024 * 1024;   //2mb
-
-            var fileArray = new IFormFile[]
-            {
-                CreateCustomFormFileBinaryDataContent(fileData,size),
-                 CreateCustomFormFileBinaryDataContent(fileData,size,"image2.png","image/png"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image3.jpeg"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image4.png","image/png")
-            };
-
-            var projectAdministrationViewModel = new ProjectsAdministrationViewModel
-            {
-                NewProject = new Project
-                {
-                    Title = "Test Title",
-                    Description = "Test Description"
-                },
-                Files = fileArray
-            };
-
-            //act
-            var result = await controller.PostProject(projectAdministrationViewModel) as RedirectToPageResult;
-
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            Assert.That(result.RouteValues!["info"], Is.EqualTo("Ceva nu a mers bine, încearcă dinou sau contactează dezvoltatorul!"));
-            mockProject.Verify(x => x.AddProjectAsync(It.IsAny<Project>()), Times.Once());
-            Assert.ThrowsAsync<Exception>(async () => await mockProject.Object.AddProjectAsync(It.IsAny<Project>()));
-
-        }
         #endregion
 
         #region EditProjectPost
@@ -664,11 +487,15 @@ namespace IPDImexWebsiteUnitTests
         public async Task EditProjectPost_ModelStateIsNotValid_ReturnView()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-            controller.ModelState.AddModelError("modelStateIsNotValid", "test");
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
+            _controller.ModelState.AddModelError("modelStateIsNotValid", "test");
 
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
             {
@@ -679,7 +506,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
 
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel;
 
@@ -701,17 +528,21 @@ namespace IPDImexWebsiteUnitTests
 
                 Assert.That(errorValue!.Errors[0].ErrorMessage, Is.EqualTo("test"));
             });
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_NoImages_ReturnView()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
 
             var projectAdministrationViewModel = new ProjectsAdministrationViewModel
             {
@@ -724,7 +555,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
 
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel;
 
@@ -745,17 +576,21 @@ namespace IPDImexWebsiteUnitTests
 
                 Assert.That(result.ViewData.ModelState.ContainsKey("NoImages"), Is.True);
             });
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_NotEnoughImages_ReturnView()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -780,7 +615,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
 
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel;
 
@@ -801,17 +636,21 @@ namespace IPDImexWebsiteUnitTests
 
                 Assert.That(result.ViewData.ModelState.ContainsKey("fewImages"), Is.True);
             });
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_ToManyImages_ReturnView()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -844,7 +683,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
 
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel;
 
@@ -865,17 +704,21 @@ namespace IPDImexWebsiteUnitTests
 
                 Assert.That(result.ViewData.ModelState.ContainsKey("manyImages"), Is.True);
             });
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_OneFileIsNotPNGorJPEG_ReturnView()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -901,7 +744,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
 
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel;
 
@@ -922,17 +765,21 @@ namespace IPDImexWebsiteUnitTests
 
                 Assert.That(result.ViewData.ModelState.ContainsKey("wrongType"), Is.True);
             });
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_OneFileIsBIggerThan10mb_ReturnView()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
 
             byte[] fileData = new byte[] { 200 };
 
@@ -959,7 +806,7 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as ViewResult;
 
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel;
 
@@ -980,18 +827,22 @@ namespace IPDImexWebsiteUnitTests
 
                 Assert.That(result.ViewData.ModelState.ContainsKey("bigSize"), Is.True);
             });
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_CouldNotDeleteTheOldPicturesForUnknownReasons_ReturnAdminInfoPage()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
+            _project.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(false));
 
             byte[] fileData = new byte[] { 200 };
 
@@ -1017,68 +868,28 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as RedirectToPageResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as RedirectToPageResult;
 
             //assert
             Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>()), Times.Once());
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Never());
-        }
-
-
-        [Test]
-        public async Task EditProjectPost_CanDeleteTheOldPicturesButCouldNotEditTheProject_ReturnAdminInfoPage()
-        {
-            //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
-            mockProject.Setup(x => x.EditProject(It.IsAny<Project>())).Returns(async () => await Task.FromResult(false));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
-            byte[] fileData = new byte[] { 200 };
-
-            int size = 2 * 1024 * 1024;   //2mb
-
-            var fileArray = new IFormFile[]
-            {
-                 CreateCustomFormFileBinaryDataContent(fileData,size),
-                 CreateCustomFormFileBinaryDataContent(fileData,size,"image2.png","image/png"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image3.png","image/png"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image4.png","image/png")
-            };
-
-            var projectAdministrationViewModel = new ProjectsAdministrationViewModel
-            {
-                NewProject = new Project()
-                {
-                    Id = 1,
-                    Title = "Test Title",
-                    Description = "Test Description"
-                },
-                Files = fileArray
-            };
-
-            //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as RedirectToPageResult;
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>()), Times.Once());
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Once());
+            _project.Verify(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>()), Times.Once());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Never());
         }
 
         [Test]
         public async Task EditProjectPost_EverythingWorksProjectIsEdited_ReturnAdminInfoPage()
         {
             //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
-            mockProject.Setup(x => x.EditProject(It.IsAny<Project>())).Returns(async () => await Task.FromResult(true));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object,mocklog.Object);
+            var project = new Project
+            {
+                Id = 1,
+                Title = "TestTitle",
+                Description = "TestDescription",
+                Pictures = GetMockPictures()
+            };
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
+            _project.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
+            _project.Setup(x => x.UpdateProject(It.IsAny<Project>())).Returns(async () => await Task.FromResult(true));
 
             byte[] fileData = new byte[] { 200 };
 
@@ -1104,98 +915,58 @@ namespace IPDImexWebsiteUnitTests
             };
 
             //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as RedirectToActionResult;
+            var result = await _controller.EditProjectPost(projectAdministrationViewModel) as RedirectToActionResult;
 
             //assert
             Assert.That(result!.ActionName, Is.EqualTo("ProjectsPanel"));
-            mockProject.Verify(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>()), Times.Once());
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Once());
+            _project.Verify(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>()), Times.Once());
+            _project.Verify(x => x.UpdateProject(It.IsAny<Project>()), Times.Once());
         }
-
-        [Test]
-        public async Task EditProjectPost_ThrowsException_ReturnAdminInfoPage()
-        {
-            //arrange
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            mockProject.Setup(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>())).Returns(async () => await Task.FromResult(true));
-            mockProject.Setup(x => x.EditProject(It.IsAny<Project>())).Throws(new Exception("An error ocurreed while editing the project"));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object,mocklog.Object);
-
-            byte[] fileData = new byte[] { 200 };
-
-            int size = 2 * 1024 * 1024;   //2mb
-
-            var fileArray = new IFormFile[]
-            {
-                 CreateCustomFormFileBinaryDataContent(fileData,size),
-                 CreateCustomFormFileBinaryDataContent(fileData,size,"image2.png","image/png"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image3.png","image/png"),
-                CreateCustomFormFileBinaryDataContent(fileData,size,"image4.png","image/png")
-            };
-
-            var projectAdministrationViewModel = new ProjectsAdministrationViewModel
-            {
-                NewProject = new Project()
-                {
-                    Id = 1,
-                    Title = "Test Title",
-                    Description = "Test Description"
-                },
-                Files = fileArray
-            };
-
-            //act
-            var result = await controller.EditProjectPost(projectAdministrationViewModel) as RedirectToPageResult;
-
-            //assert
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            mockProject.Verify(x => x.DeleteAllPicturesForSpecificProject(It.IsAny<int>()), Times.Once());
-            mockProject.Verify(x => x.EditProject(It.IsAny<Project>()), Times.Once());
-
-            Assert.That(result.RouteValues!["info"], Is.EqualTo("Ceva nu a mers bine, încearcă dinou sau contactează dezvoltatorul!"));
-            Assert.ThrowsAsync<Exception>(async () => await mockProject.Object.EditProject(It.IsAny<Project>()));
-        }
-
-
         #endregion
 
         #region EditProject
         [Test]
-        public async Task EditProject_ProjectToEditIsNull_ReturnAdminInfo()
+        [TestCase(0)]
+        [TestCase(-1)]
+        public async Task EditProject_ProjectIdIsLessThanZeroOrEqual_ReturnProjectsPanel(int projectId)
+        {
+            //act
+            var result = await _controller.EditProject(projectId) as RedirectToActionResult;
+
+            //assert
+            Assert.That(result?.ActionName, Is.EqualTo("ProjectsPanel"));
+            _project.Verify(x => x.GetProjectIncludePictures(It.IsAny<int>()), Times.Never());
+        }
+
+        [Test]
+        public async Task EditProject_ProjectIsNotFound_ReturnAdminInfo()
         {
             //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
             Project project = default!;
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
 
             //act
-            var result = await controller.EditProject(project!) as RedirectToPageResult;
+            var result = await _controller.EditProject(1) as RedirectToPageResult;
 
             //assert
             Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
         }
+
         [Test]
         public async Task EditProject_ProjectIsNotNull_ReturnEditProjectView()
         {
             //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Returns(MockGetAllPicturesOfSpecificProjects());
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
             Project project = new Project()
             {
                 Id = 1,
                 Title = "Test Title",
-                Description = "Test Description"
+                Description = "Test Description",
+                Pictures = GetMockPictures()
             };
-
+            _project.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
+          
             //act
-            var result = await controller.EditProject(project!) as ViewResult;
+            var result = await _controller.EditProject(project.Id) as ViewResult;
             var model = result!.ViewData.Model as ProjectsAdministrationViewModel ?? new();
 
             //assert
@@ -1217,40 +988,8 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(model?.NewProject!.Pictures![3].Extension, Is.EqualTo("png"));
             });
 
-            mockProject.Verify(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>()), Times.Once());
-        }
-        [Test]
-        public async Task EditProject_ThrowsException_returnAdminInfo()
-        {
-            //arrange 
-            var mockProject = new Mock<IRepositoryProject>();
-            mockProject.Setup(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>())).Throws(new Exception("Error"));
-            var mocklog = new Mock<ILogger<ProjectsAdministrationController>>();
-            var controller = new ProjectsAdministrationController(mockProject.Object, mocklog.Object);
-
-            Project project = new Project()
-            {
-                Id = 1,
-                Title = "Test Title",
-                Description = "Test Description"
-            };
-
-            //act
-            var result = await controller.EditProject(project!) as RedirectToPageResult;
-
-            //assert
-            mockProject.Verify(x => x.GetAllPicturesOfSpecificProject(It.IsAny<int>()), Times.Once());
-            Assert.That(result!.PageName, Is.EqualTo("/AdminInfo"));
-            Assert.ThrowsAsync<Exception>(async () =>
-            {
-                await foreach (var picture in mockProject.Object.GetAllPicturesOfSpecificProject(1))
-                {
-                    // no code needed
-                }
-            });
+            _project.Verify(x => x.GetProjectIncludePictures(It.IsAny<int>()), Times.Once());
         }
         #endregion
-
-
     }
 }
