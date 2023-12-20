@@ -22,7 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Handlers\" />
     <Folder Include="TagHelpers\" />
     <Folder Include="ViewComponents\" />
   </ItemGroup>

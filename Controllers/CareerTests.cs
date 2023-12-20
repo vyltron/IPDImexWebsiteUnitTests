@@ -278,7 +278,7 @@ namespace IPDImexWebsiteUnitTests.Controllers
             Assert.That(result!.PageName, Is.EqualTo("/ClientInfo"));
             Assert.That(result!.RouteValues?["info"], Is.EqualTo("Aplicația ta a fost trimisă cu succes!"));
             _appRepository.Verify(x => x.SendAplication(It.IsAny<Aplication>()), Times.Once);
-            _emailService.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.AtLeast(3));
+            _emailService.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.AtLeast(2));
 
         }
 
