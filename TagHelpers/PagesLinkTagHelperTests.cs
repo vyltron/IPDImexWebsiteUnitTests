@@ -11,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IPDImexWebsiteUnitTests
+namespace IPDImexWebsiteUnitTests.TagHelpers
 {
     [TestFixture]
     internal class PagesLinkTagHelperTests
@@ -43,7 +43,7 @@ namespace IPDImexWebsiteUnitTests
                 PageAction = "ActionTest",
                 ViewContext = viewContext.Object,
                 PaginationModel = pagination,
-                CurrentLinkStyle ="currentStyle",
+                CurrentLinkStyle = "currentStyle",
                 ButtonStyle = "buttonStyle",
                 NextButtonServiceClass = "class",
                 PreviousButtonServiceClass = "class",

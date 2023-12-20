@@ -21,9 +21,4 @@
     <ProjectReference Include="..\IPDImexWebsite\IPDImexWebsite.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="TagHelpers\" />
-    <Folder Include="ViewComponents\" />
-  </ItemGroup>
-
 </Project>

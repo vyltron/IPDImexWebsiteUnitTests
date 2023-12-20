@@ -11,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IPDImexWebsiteUnitTests
+namespace IPDImexWebsiteUnitTests.ViewComponents
 {
     [TestFixture]
     internal class ControlPanelViewComponentTests
@@ -33,7 +33,7 @@ namespace IPDImexWebsiteUnitTests
             var mockProjects = new Mock<IRepositoryProject>();
             mockProjects.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(15));
 
-            var viewComponent = new ControlPanelViewComponent(mockMessages.Object, mockApplications.Object, mockJobs.Object,mockProjects.Object, mockLog.Object);
+            var viewComponent = new ControlPanelViewComponent(mockMessages.Object, mockApplications.Object, mockJobs.Object, mockProjects.Object, mockLog.Object);
 
             //act
             var result = (await viewComponent.InvokeAsync() as ViewViewComponentResult)?.ViewData?.Model as ControlPanelViewModel ?? new();

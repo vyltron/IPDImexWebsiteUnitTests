@@ -12,7 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IPDImexWebsiteUnitTests
+namespace IPDImexWebsiteUnitTests.ViewComponents
 {
     [TestFixture]
     internal class AdminInfoViewComponentTests
