@@ -3,6 +3,7 @@ using IPDImexWebsite.Controllers;
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -51,8 +52,9 @@ namespace IPDImexWebsiteUnitTests
             var mockRepository = new Mock<IRepositoryProject>();
             mockRepository.Setup(x => x.GetProjectsWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
             var mockILogger = new Mock<ILogger<ProjectsController>>();
+            var mockHttp = new Mock<IHttpContextAccessor>();
 
-            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object, mockHttp.Object);
             controller.PageSize = 2;
 
             //act
@@ -79,8 +81,8 @@ namespace IPDImexWebsiteUnitTests
             mockRepository.Setup(x => x.GetProjectsWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
             mockRepository.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(2));
             var mockILogger = new Mock<ILogger<ProjectsController>>();
-
-            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+            var mockHttp = new Mock<IHttpContextAccessor>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object, mockHttp.Object);
             controller.PageSize = 2;
 
             //act
@@ -104,7 +106,8 @@ namespace IPDImexWebsiteUnitTests
             //arraange
             var mockRepository = new Mock<IRepositoryProject>();
             var mockILogger = new Mock<ILogger<ProjectsController>>();
-            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+            var mockHttp = new Mock<IHttpContextAccessor>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object, mockHttp.Object);
 
             //act
             var result = await controller.ReadProject(projectId) as RedirectToActionResult;
@@ -123,7 +126,8 @@ namespace IPDImexWebsiteUnitTests
             Project project = default!;
             mockRepository.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
             var mockILogger = new Mock<ILogger<ProjectsController>>();
-            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+            var mockHttp = new Mock<IHttpContextAccessor>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object, mockHttp.Object);
 
             //act
             var result = await controller.ReadProject(2) as RedirectToPageResult;
@@ -141,7 +145,8 @@ namespace IPDImexWebsiteUnitTests
             Project project = new Project { Id = 2, Title="TestTitle" };
             mockRepository.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
             var mockILogger = new Mock<ILogger<ProjectsController>>();
-            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+            var mockHttp = new Mock<IHttpContextAccessor>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object, mockHttp.Object);
 
             //act
             var result = await controller.ReadProject(2) as ViewResult;
