@@ -49,7 +49,7 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetProjectsWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
             var mockILogger = new Mock<ILogger<ProjectsController>>();
 
             var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
@@ -76,7 +76,7 @@ namespace IPDImexWebsiteUnitTests
         {
             //arrange
             var mockRepository = new Mock<IRepositoryProject>();
-            mockRepository.Setup(x => x.GetProjectsIncludePicturesWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
+            mockRepository.Setup(x => x.GetProjectsWithPaginationInDescendingOrder(It.IsAny<int>(), It.IsAny<int>())).Returns(MockGetProjects());
             mockRepository.Setup(x => x.GetProjectsCount()).Returns(async () => await Task.FromResult(2));
             var mockILogger = new Mock<ILogger<ProjectsController>>();
 
@@ -94,6 +94,63 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(result.Pagination.TotalItems, Is.EqualTo(2));
                 Assert.That(result.Pagination.TotalPages, Is.EqualTo(1));
             });
+        }
+
+        [Test]
+        [TestCase(0)]
+        [TestCase(-1)]
+        public async Task ReadProject_IdIsLessThanZeor_ReturnIndexAction(int projectId)
+        {
+            //arraange
+            var mockRepository = new Mock<IRepositoryProject>();
+            var mockILogger = new Mock<ILogger<ProjectsController>>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+
+            //act
+            var result = await controller.ReadProject(projectId) as RedirectToActionResult;
+
+            //assert
+            Assert.That(result?.ActionName, Is.EqualTo("Index"));
+            mockRepository.Verify(x => x.GetProjectIncludePictures(It.IsAny<int>()),Times.Never());
+        }
+
+        [Test]
+     
+        public async Task ReadProject_ProjectIsNotFound_ReturnClientInfo()
+        {
+            //arraange
+            var mockRepository = new Mock<IRepositoryProject>();
+            Project project = default!;
+            mockRepository.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
+            var mockILogger = new Mock<ILogger<ProjectsController>>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+
+            //act
+            var result = await controller.ReadProject(2) as RedirectToPageResult;
+
+            //assert
+            Assert.That(result?.PageName, Is.EqualTo("/ClientInfo"));
+            mockRepository.Verify(x => x.GetProjectIncludePictures(It.IsAny<int>()), Times.Once());
+        }
+        [Test]
+
+        public async Task ReadProject_ProjectIsFound_ReturnView()
+        {
+            //arraange
+            var mockRepository = new Mock<IRepositoryProject>();
+            Project project = new Project { Id = 2, Title="TestTitle" };
+            mockRepository.Setup(x => x.GetProjectIncludePictures(It.IsAny<int>())).ReturnsAsync(project);
+            var mockILogger = new Mock<ILogger<ProjectsController>>();
+            var controller = new ProjectsController(mockRepository.Object, mockILogger.Object);
+
+            //act
+            var result = await controller.ReadProject(2) as ViewResult;
+            var model = result?.ViewData.Model as Project ?? new();
+
+            //assert
+            Assert.That(model.Id, Is.EqualTo(2));
+            Assert.That(model.Title, Is.EqualTo("TestTitle"));
+            mockRepository.Verify(x => x.GetProjectIncludePictures(It.IsAny<int>()), Times.Once());
         }
     }
 }
