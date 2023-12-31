@@ -7,6 +7,7 @@ using IPDImexWebsite.Controllers;
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -19,13 +20,15 @@ namespace IPDImexWebsiteUnitTests
         private Mock<IRepositoryAplication> _repository;
         private Mock<ILogger<JobApplicationsController>> _logger;
         private JobApplicationsController _controller;
+        private Mock<IHttpContextAccessor> _context;
 
         [SetUp]
         public void SetUp()
         {
             _repository = new Mock<IRepositoryAplication>();
             _logger = new Mock<ILogger<JobApplicationsController>>();
-            _controller = new JobApplicationsController(_repository.Object, _logger.Object);
+            _context = new Mock<IHttpContextAccessor>();
+            _controller = new JobApplicationsController(_repository.Object, _logger.Object, _context.Object);
         }
 
         public async IAsyncEnumerable<Aplication> MockGetApplications()
@@ -179,7 +182,7 @@ namespace IPDImexWebsiteUnitTests
         }
 
         [Test]
-        public async Task JobAplicationsPanel_CanPaginate()
+        public async Task JobAplicationsPanel_CanPaginateAndContainsGEneratetheCurrentUrl()
         {
             //arrange
             _repository.Setup(x => x.GetAllAplications()).Returns(MockGetApplications());
@@ -190,9 +193,10 @@ namespace IPDImexWebsiteUnitTests
             _controller.PageSize = 2;
 
             //act
-            var result = (await _controller.JobApplicationsPanel(2) as ViewResult)?.ViewData.Model as JobApplicationsViewModel ?? new();
-            var messagesList = result.Applications.ToList();
-            var pagination = result.Pagination;
+            var result = await _controller.JobApplicationsPanel(2) as ViewResult;
+            var model =  result?.ViewData.Model as JobApplicationsViewModel ?? new();
+            var messagesList = model.Applications.ToList();
+            var pagination = model.Pagination;
 
             //assert
             Assert.Multiple(() =>
@@ -200,6 +204,7 @@ namespace IPDImexWebsiteUnitTests
                 Assert.That(pagination.CurrentPage, Is.EqualTo(2));
                 Assert.That(pagination.ItemsPerPage, Is.EqualTo(2));
                 Assert.That(pagination.TotalPages, Is.EqualTo(2));
+                Assert.That(result?.ViewData.ContainsKey("CurrentUrl"), Is.True);
 
                 Assert.That(messagesList[0].Id, Is.EqualTo(2));
                 Assert.That(messagesList[0].FirstName, Is.EqualTo("Ciprian"));
@@ -371,7 +376,7 @@ namespace IPDImexWebsiteUnitTests
             });
         }
         [Test]
-        public async Task SearchApplications_CanSendSearchRequest()
+        public async Task SearchApplications_CanSendSearchRequestAndGenerateCurrentUrl()
         {
             //arrange
             _repository.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetApplications());
@@ -381,13 +386,16 @@ namespace IPDImexWebsiteUnitTests
             _controller.PageSize = 2;
 
             //act
-            var result = (await _controller.SearchApplications("Test", 2) as ViewResult)?.ViewData.Model as JobApplicationsViewModel ?? new();
+            var result = await _controller.SearchApplications("Test", 2) as ViewResult;
+            var model =  result?.ViewData.Model as JobApplicationsViewModel ?? new();
 
             //assert
             Assert.Multiple(() =>
             {
-                Assert.That(result.SearchRequest, Is.EqualTo(true));
-                Assert.That(result.SearchCriteria, Is.EqualTo("Test"));
+                Assert.That(result?.ViewData.ContainsKey("CurrentUrl"), Is.True);
+                Assert.That(_controller.ViewBag.SearchCriteria, Is.Not.Null);
+                Assert.That(model.SearchRequest, Is.EqualTo(true));
+                Assert.That(model.SearchCriteria, Is.EqualTo("Test"));
             });
         }
         #endregion
