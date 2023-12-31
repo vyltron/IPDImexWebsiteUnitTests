@@ -2,7 +2,9 @@
 using IPDImexWebsite.Models;
 using IPDImexWebsite.Models.Repository;
 using IPDImexWebsite.ViewModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System;
@@ -21,13 +23,15 @@ namespace IPDImexWebsiteUnitTests.Controllers
         private Mock<ILogger<AdministrationController>> _logger;
         private Mock<IRepositoryMessage> _repository;
         private AdministrationController _administrationController;
+        private Mock<IHttpContextAccessor> _accesor;
 
         [SetUp]
         public void SetUp()
         {
             _logger = new Mock<ILogger<AdministrationController>>();    
             _repository = new Mock<IRepositoryMessage>();   
-            _administrationController = new AdministrationController(_repository.Object, _logger.Object);
+            _accesor = new Mock<IHttpContextAccessor>();
+            _administrationController = new AdministrationController(_repository.Object, _logger.Object, _accesor.Object);
         }
 
         public async IAsyncEnumerable<Message> MockGetMessages()
@@ -156,12 +160,14 @@ namespace IPDImexWebsiteUnitTests.Controllers
             _administrationController.PageSize = 10;
 
             //act
-            var result = (await _administrationController.MessagesPanel(1) as ViewResult)?.ViewData.Model as MessagesPanelViewModel ?? new();
-            var messagesList = result.Messages.ToList();
+            var result = await _administrationController.MessagesPanel(1) as ViewResult;
+            var model = result?.ViewData.Model as MessagesPanelViewModel ?? new();
+            var messagesList = model.Messages.ToList();
 
             //assert
             Assert.Multiple(() =>
             {
+                Assert.That(result?.ViewData.ContainsKey("CurrentUrl"), Is.True);
                 Assert.That(messagesList[0].Id, Is.EqualTo(4));
                 Assert.That(messagesList[0].LastName, Is.EqualTo("Petrica"));
 
@@ -368,7 +374,7 @@ namespace IPDImexWebsiteUnitTests.Controllers
             });
         }
         [Test]
-        public async Task SearchMessages_CanSendSearchRequest()
+        public async Task SearchMessages_CanSendSearchRequestAndCreateViewDataCurrentUrl()
         {
             //arrange
             _repository.Setup(x => x.SearchAsync(It.IsAny<string>())).Returns(MockGetMessages());
@@ -378,16 +384,19 @@ namespace IPDImexWebsiteUnitTests.Controllers
             _administrationController.PageSize = 2;
 
             //act
-            var result = (await _administrationController.SearchMessages("Test", 2) as ViewResult)?.ViewData.Model as MessagesPanelViewModel ?? new();
+            var result = await _administrationController.SearchMessages("Test", 2) as ViewResult;
+            var model = result?.ViewData?.Model as MessagesPanelViewModel ?? new();
 
             //assert
             Assert.Multiple(() =>
             {
-                Assert.That(result.SearchRequest, Is.EqualTo(true));
-                Assert.That(result.SearchCriteria, Is.EqualTo("Test"));
+                Assert.That(result?.ViewData.ContainsKey("CurrentUrl"), Is.True);
+                Assert.That(_administrationController.ViewBag.SearchCriteria, Is.Not.Null);
+                Assert.That(model.SearchRequest, Is.EqualTo(true));
+                Assert.That(model.SearchCriteria, Is.EqualTo("Test"));
             });
-
         }
+
         #endregion
     }
 }

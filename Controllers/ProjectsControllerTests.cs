@@ -86,15 +86,18 @@ namespace IPDImexWebsiteUnitTests
             controller.PageSize = 2;
 
             //act
-            var result = (await controller.Index(2) as ViewResult)?.ViewData.Model as ProjectsViewModel ?? new();
+            var result = await controller.Index(2) as ViewResult;
+            var model = result?.ViewData?.Model as ProjectsViewModel ?? new();
 
             //assert
             Assert.Multiple(() =>
             {
-                Assert.That(result.Pagination.ItemsPerPage, Is.EqualTo(2));
-                Assert.That(result.Pagination.CurrentPage, Is.EqualTo(2));
-                Assert.That(result.Pagination.TotalItems, Is.EqualTo(2));
-                Assert.That(result.Pagination.TotalPages, Is.EqualTo(1));
+                Assert.That(model.Pagination.ItemsPerPage, Is.EqualTo(2));
+                Assert.That(model.Pagination.CurrentPage, Is.EqualTo(2));
+                Assert.That(model.Pagination.TotalItems, Is.EqualTo(2));
+                Assert.That(model.Pagination.TotalPages, Is.EqualTo(1));
+                Assert.That(result?.ViewData.ContainsKey("CurrentUrl"), Is.True);
+
             });
         }
 
